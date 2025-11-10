@@ -6,6 +6,5 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 let startMarker = null;
-let endMarker = null;
 let routeLine = null;
-let pickMode = null;
+let pickMode = false;

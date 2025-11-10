@@ -5,21 +5,18 @@
     <h4>Построить маршрут</h4>
 
     <div class="coord-block">
-      <b>Начальная точка</b><br>
+      <b>Начало маршрута</b><br>
       <label>Широта:</label>
-      <input id="start_lat" placeholder="55.7" value="55.704250"><br>
+      <input id="start_lat" placeholder="55.75" value=""><br>
       <label>Долгота:</label>
-      <input id="start_lon" placeholder="37.6" value="37.646103">
-      <button id="pickStartBtn" class="small-btn">📍 Выбрать на карте</button>
+      <input id="start_lon" placeholder="37.61" value="">
+      <button id="pickPointBtn" class="small-btn">📍 Выбрать на карте</button>
     </div>
 
     <div class="coord-block">
-      <b>Конечная точка</b><br>
-      <label>Широта:</label>
-      <input id="end_lat" placeholder="55.6" value="55.636524"><br>
-      <label>Долгота:</label>
-      <input id="end_lon" placeholder="37.6" value="37.654592">
-      <button id="pickEndBtn" class="small-btn">📍 Выбрать на карте</button>
+      <b>Параметры маршрута</b><br>
+      <label>Кол-во узлов:</label>
+      <input id="node_count" type="number" min="2" max="500" value="10">
     </div>
 
     <button id="buildBtn">Построить маршрут</button>

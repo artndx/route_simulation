@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, jsonify
-from .graph import init_graph, make_route
+from .graph import init_graph, make_route_from_point
 
 import os
 
@@ -35,7 +35,7 @@ def index():
 def api_route():
     data = request.get_json()
     start = data["start"]
-    end = data["end"]
-    route = make_route(start, end, graph)
+    nodes_count = data["nodes"]
+    route = make_route_from_point(start, nodes_count, graph)
     return jsonify(route=route)
 # ======
