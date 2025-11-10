@@ -1,12 +1,13 @@
-import os
 import osmnx as ox
 import pickle
+
+import os
 
 # ====== Загрузка или создание графа ======
 #
 GRAPH_FILE = "data/map.pkl"
 
-def get_graph( graph_center, graph_radius_dist):
+def init_graph( graph_center, graph_radius_dist):
     if os.path.exists(GRAPH_FILE):
         with open(GRAPH_FILE, "rb") as f:
             print("✔️  Map graph loaded from cache {}".format(GRAPH_FILE))
@@ -22,7 +23,7 @@ def get_graph( graph_center, graph_radius_dist):
 
 # ====== Построение маршрута ======
 #
-def build_route(start, end, graph):
+def make_route(start, end, graph):
     lat1, lon1 = start
     lat2, lon2 = end
 
