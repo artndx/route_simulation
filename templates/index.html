@@ -1,100 +1,9 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <title>Маршрут на карте</title>
-
-  <!-- Подключаем Leaflet -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
-  </script>
-
-  <style>
-    html, body { height: 100%; margin: 0; padding: 0; }
-    #map { height: 100%; }
-
-    #controls {
-      position: absolute;
-      top: 100px;
-      left: 10px;
-      background: rgb(75, 75, 75);
-      padding: 12px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-      z-index: 1000;
-      width: 250px;
-      font-family: sans-serif;
-      color: rgb(255, 255, 255);
-    }
-
-    #controls h4 {
-      width: 200px;
-      height: 30px;
-      margin-top: 0;
-      display: flex;
-      align-items: center;  /* по вертикали */
-      justify-content: center; /* по горизонтали */
-      box-shadow: 0 0 10px rgb(0, 0, 0);
-      border-radius: 8px;
-      background: rgba(65, 65, 65, 0.95);
-    }
-
-    .coord-block {
-      margin-bottom: 10px;
-      border-bottom: 1px solid #ddd;
-      padding-bottom: 5px;
-    }
-
-    label {
-      display: inline-block;
-      width: 70px;
-      font-size: 14px;
-      text-align: center;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.47);
-      border-radius: 8px;
-    }
-
-    input {
-      width: 90px;
-      margin-bottom: 4px;
-    }
-
-    button {
-      width: 100%;
-      margin-top: 5px;
-      padding: 5px;
-      cursor: pointer;
-      border: none;
-      border-radius: 5px;
-      background: #0078ff;
-      color: white;
-    }
-
-    button:hover {
-      background: #005fcc;
-    }
-
-    .small-btn {
-      width: auto;
-      font-size: 12px;
-      background: #888;
-      margin-left: 5px;
-    }
-
-    .small-btn.active {
-      background: #ff8800;
-    }
-  </style>
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}Маршрут на карте{% endblock %}
+{% block content %}
   <div id="controls">
     <h4>Построить маршрут</h4>
 
-    <!-- Блок начала маршрута -->
     <div class="coord-block">
       <b>Начальная точка</b><br>
       <label>Широта:</label>
@@ -104,7 +13,6 @@
       <button id="pickStartBtn" class="small-btn">📍 Выбрать на карте</button>
     </div>
 
-    <!-- Блок конца маршрута -->
     <div class="coord-block">
       <b>Конечная точка</b><br>
       <label>Широта:</label>
@@ -114,7 +22,6 @@
       <button id="pickEndBtn" class="small-btn">📍 Выбрать на карте</button>
     </div>
 
-    <!-- Кнопки управления -->
     <button id="buildBtn">Построить маршрут</button>
     <button id="clearBtn" style="background:#aaa;">Очистить</button>
   </div>
@@ -122,130 +29,6 @@
   <div id="map"></div>
 
   <script>
-    // === 1. Инициализация карты ===
     const CENTER = [parseFloat("{{ center_lat }}"), parseFloat("{{ center_lon }}")];
-
-    const map = L.map("map").setView(CENTER, 12);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/">OSM</a>'
-    }).addTo(map);
-
-    let startMarker = null;
-    let endMarker = null;
-    let routeLine = null;
-
-    // Режим выбора точки
-    let pickMode = null; // "start" или "end"
-
-    // === 2. Выбор точки кликом ===
-    map.on("click", e => {
-      if (!pickMode) return;
-
-      const { lat, lng } = e.latlng;
-      if (pickMode === "start") {
-        document.getElementById("start_lat").value = lat.toFixed(6);
-        document.getElementById("start_lon").value = lng.toFixed(6);
-
-        if (startMarker) map.removeLayer(startMarker);
-        startMarker = L.marker([lat, lng], { draggable: true })
-          .addTo(map)
-          .bindPopup("Начало").openPopup();
-
-      } else if (pickMode === "end") {
-        document.getElementById("end_lat").value = lat.toFixed(6);
-        document.getElementById("end_lon").value = lng.toFixed(6);
-
-        if (endMarker) map.removeLayer(endMarker);
-        endMarker = L.marker([lat, lng], { draggable: true })
-          .addTo(map)
-          .bindPopup("Конец").openPopup();
-      }
-
-      deactivatePickMode();
-    });
-
-    // === 3. Активация режима выбора точки ===
-    const pickStartBtn = document.getElementById("pickStartBtn");
-    const pickEndBtn = document.getElementById("pickEndBtn");
-
-    function deactivatePickMode() {
-      pickMode = null;
-      pickStartBtn.classList.remove("active");
-      pickEndBtn.classList.remove("active");
-    }
-
-    pickStartBtn.addEventListener("click", () => {
-      if (pickMode === "start") {
-        deactivatePickMode();
-      } else {
-        pickMode = "start";
-        pickStartBtn.classList.add("active");
-        pickEndBtn.classList.remove("active");
-      }
-    });
-
-    pickEndBtn.addEventListener("click", () => {
-      if (pickMode === "end") {
-        deactivatePickMode();
-      } else {
-        pickMode = "end";
-        pickEndBtn.classList.add("active");
-        pickStartBtn.classList.remove("active");
-      }
-    });
-
-    // === 4. Очистить всё ===
-    document.getElementById("clearBtn").addEventListener("click", () => {
-      if (startMarker) map.removeLayer(startMarker);
-      if (endMarker) map.removeLayer(endMarker);
-      if (routeLine) map.removeLayer(routeLine);
-      document.getElementById("start_lat").value = "";
-      document.getElementById("start_lon").value = "";
-      document.getElementById("end_lat").value = "";
-      document.getElementById("end_lon").value = "";
-      deactivatePickMode();
-    });
-
-    // === 5. Построение маршрута ===
-    document.getElementById("buildBtn").addEventListener("click", async () => {
-      const startLat = parseFloat(document.getElementById("start_lat").value);
-      const startLon = parseFloat(document.getElementById("start_lon").value);
-      const endLat = parseFloat(document.getElementById("end_lat").value);
-      const endLon = parseFloat(document.getElementById("end_lon").value);
-
-      if (isNaN(startLat) || isNaN(startLon) || isNaN(endLat) || isNaN(endLon)) {
-        alert("Пожалуйста, укажите координаты начала и конца маршрута.");
-        return;
-      }
-
-      const resp = await fetch("/build_route", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          start: [startLat, startLon],
-          end: [endLat, endLon]
-        })
-      });
-
-      const data = await resp.json();
-      if (routeLine) map.removeLayer(routeLine);
-
-      const coords = data.route.map(pt => [pt[0], pt[1]]);
-      routeLine = L.polyline(coords, { color: "blue", weight: 5 }).addTo(map);
-      map.fitBounds(routeLine.getBounds());
-
-      // Автоматически ставим маркеры, если их нет
-      if (!startMarker) {
-        startMarker = L.marker(coords[0], { draggable: false })
-          .addTo(map).bindPopup("Начало");
-      }
-      if (!endMarker) {
-        endMarker = L.marker(coords[coords.length - 1], { draggable: false })
-          .addTo(map).bindPopup("Конец");
-      }
-    });
   </script>
-</body>
-</html>
+{% endblock %}

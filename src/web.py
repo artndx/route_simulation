@@ -5,10 +5,11 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # путь до route_simulation/
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 # ====== Инициализация ======
 # 
-app = Flask(__name__, template_folder=TEMPLATES_DIR)
+app = Flask(__name__, template_folder=TEMPLATES_DIR, static_folder=STATIC_DIR)
 GRAPH_CENTER = {
     "latitude": 55.755864,
     "longtitude": 37.617698

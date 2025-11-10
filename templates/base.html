@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Маршрут на карте{% endblock %}</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Наши стили -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/map.css') }}">
+</head>
+<body>
+  {% block content %}{% endblock %}
+
+  <!-- JS -->
+  <script src="{{ url_for('static', filename='js/map.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/controls.js') }}" defer></script>
+</body>
+</html>
