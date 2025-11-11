@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, jsonify
-from .graph import init_graph, make_route_from_point
+from .graph import init_graph, make_route
 
 import os
 
@@ -14,8 +14,6 @@ GRAPH_CENTER = {
     "latitude": 55.755864,
     "longtitude": 37.617698
 }
-GRAPH_RADIUS = 30_000  # 30 км
-graph = init_graph(GRAPH_CENTER, GRAPH_RADIUS)
 # ======
 
 # ====== Главная страница ======
@@ -35,7 +33,7 @@ def index():
 def api_route():
     data = request.get_json()
     start = data["start"]
-    nodes_count = data["nodes"]
-    route = make_route_from_point(start, nodes_count, graph)
+    end = data["end"]
+    route = make_route(start, end)
     return jsonify(route=route)
 # ======
