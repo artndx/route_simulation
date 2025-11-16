@@ -9,9 +9,11 @@ let minSpeedMultiplier = 0.1;
 let maxSpeedMultiplier = 200;
 let speedMultiplier = 1.0;
 let isPaused = false;
+let isFinish = false;
+let currentStepIndex = 0;
 
-let baseSpeed = 15;             // m/s baseline
-let updateInterval = speedMultiplier / 0.005; // ms
+let baseSpeed = 15;                           // m/s baseline
+let updateInterval = speedMultiplier / 0.02;  // ms
 
 let chartData = {
   times: [],        // elapsed time in seconds
@@ -19,29 +21,7 @@ let chartData = {
   slopes: []        // slope at each time point
 };
 
-function deg2rad(deg) { return deg * Math.PI / 180; }
-function haversine_m(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
 function kmh(v) { return (v * 3.6).toFixed(1); }
-
-function computeFuelRate(v, slopePercent) {
-  const baseFuel = 0.0008; // L/s for baseSpeed
-  const factor = Math.max(0.1, (v / baseSpeed));
-  return baseFuel * factor * factor * (1 + (slopePercent * 0.02));
-}
-
-function computeOptimalSpeed(slopePercent) {
-  const v = baseSpeed * (1 - slopePercent * 0.012);
-  const minV = 2; const maxV = 40;
-  return Math.min(Math.max(v, minV), maxV);
-}
 
 function formatElapsed(ms) {
   const s = Math.floor(ms / 1000);
@@ -128,17 +108,18 @@ function updateCharts() {
 
 function resetAnimation() {
   if (animTimer) { clearInterval(animTimer); animTimer = null; }
+  if (playTimeout) { clearTimeout(playTimeout); playTimeout = null; }
   if (carMarker) { map.removeLayer(carMarker); carMarker = null; }
   if (traveledLine) { map.removeLayer(traveledLine); traveledLine = null; }
   
-  animIndex = 0; elapsedMs = 0; totalFuel = 0; totalDistance = 0; isPaused = false;
+  animIndex = 0; elapsedMs = 0; totalFuel = 0; totalDistance = 0; isPaused = false; isFinish = false;
+  currentStepIndex = 0;
   speedMultiplier = 1.0;
   
   document.getElementById('speed').innerText = '0';
   document.getElementById('elapsed').innerText = '00:00:00';
   document.getElementById('distance').innerText = '0';
   document.getElementById('fuel').innerText = '0';
-  document.getElementById('opt_speed').innerText = '—';
   
   document.getElementById('animControls').style.display = 'none';
   document.getElementById('pauseBtn').style.display = 'inline-block';
@@ -147,113 +128,82 @@ function resetAnimation() {
   
   chartData = { times: [], altitudes: [], slopes: [] };
 }
+// Play server-provided simulation states (array of {time_s, latitude, longitude, altitude, slope, speed_m_s, distance_km, fuel_l})
+let simStates = null;
+let playTimeout = null;
 
-function startAnimation(points) {
-  if (!points || points.length < 2) return;
+function playSimulation(states) {
+  if (!states || states.length === 0) return;
   resetAnimation();
+  simStates = states;
 
   document.getElementById("sidebar").style.display = 'inline-block';
-  const p0 = points[0];
-  carMarker = L.marker([p0.latitude, p0.longitude], {
-    icon: L.icon({
-      iconUrl: '/static/images/too_fast_lightning_car.svg',
-      iconSize: [64, 64],
-      iconAnchor: [32, 64]
-    })
-  }).addTo(map);
-
+  const p0 = states[0];
+  carMarker = L.marker([p0.latitude, p0.longitude]).addTo(map);
   traveledLine = L.polyline([[p0.latitude, p0.longitude]], { color: 'red', weight: 4 }).addTo(map);
-
   initCharts();
 
-  const segDist = [];
-  const segTime = [];
-  let summaryTime = 0;
-  
-  for (let i = 1; i < points.length; i++) {
-    const d = haversine_m(points[i-1].latitude, points[i-1].longitude, points[i].latitude, points[i].longitude);
-    segDist.push(d);
-    
-    const slopePercent = points[i].slope || 0;
-    const optV = computeOptimalSpeed(slopePercent);
-    const v = optV * 0.95;
-    const segmentTime = d / Math.max(v, 1);
-    segTime.push(segmentTime);
-    summaryTime += segmentTime;
-  }
-
-  let segOffset = 0;
-  animIndex = 1;
-
+  document.getElementById('startBtn').style.display = 'none';
+  document.getElementById('finishBtn').style.display = 'block';
   document.getElementById('animControls').style.display = 'block';
 
-  const UPDATE_MS = 50; 
-  animTimer = setInterval(() => {
-    if (isPaused) return;
-
-    if (animIndex >= points.length) {
-        clearInterval(animTimer);
-        animTimer = null;
-        return;
+  // recursive stepper using server timestamps; playback speed controlled by speedMultiplier
+  function step(i) {
+    if (isFinish || i >= states.length) {
+      return;
     }
+    if (isPaused) { playTimeout = setTimeout(() => step(i), 200); return; }
 
-    const dt = (UPDATE_MS / 1000) * speedMultiplier;
+    const s = states[i];
+    carMarker.setLatLng([s.latitude, s.longitude]);
+    traveledLine.addLatLng([s.latitude, s.longitude]);
 
-    elapsedMs += UPDATE_MS * speedMultiplier;
+    // Telemetry from server state (simulated time)
+    document.getElementById('speed').innerText = kmh(s.speed_m_s);
+    document.getElementById('elapsed').innerText = formatElapsed(Math.round(s.time_s * 1000));
+    document.getElementById('distance').innerText = (s.distance_km).toFixed(2);
+    document.getElementById('fuel').innerText = (s.fuel_l).toFixed(3);
 
-    const prev = points[animIndex - 1];
-    const next = points[animIndex];
-    const dist = segDist[animIndex - 1];
+    // Charts update (by simulated time)
+    chartData.times.push(Math.floor(s.time_s));
+    chartData.altitudes.push(s.altitude || 0);
+    chartData.slopes.push(s.slope || 0);
+    updateCharts();
 
-    if (dist === 0) { animIndex++; segOffset = 0; return; }
-
-    const slopePercent = next.slope || 0;
-    const optV = computeOptimalSpeed(slopePercent);
-    const v = optV * 0.95;
-
-    const stepM = v * dt;
-    segOffset += stepM;
-
-    const frac = Math.min(1, segOffset / dist);
-
-    const curLat = prev.latitude + (next.latitude - prev.latitude) * frac;
-    const curLon = prev.longitude + (next.longitude - prev.longitude) * frac;
-
-    carMarker.setLatLng([curLat, curLon]);
-    traveledLine.addLatLng([curLat, curLon]);
-
-    // Telemetry
-    totalDistance += stepM / 1000;
-    totalFuel += computeFuelRate(v, slopePercent) * dt;
-
-    document.getElementById('speed').innerText = kmh(v);
-    document.getElementById('elapsed').innerText = formatElapsed(elapsedMs);
-    document.getElementById('distance').innerText = totalDistance.toFixed(2);
-    document.getElementById('fuel').innerText = totalFuel.toFixed(3);
-    document.getElementById('opt_speed').innerText = kmh(optV);
-
-    // Graph updates
-    const timeInSec = Math.floor(elapsedMs / 1000);
-    if (chartData.times.length === 0 || chartData.times[chartData.times.length - 1] !== timeInSec) {
-      chartData.times.push(timeInSec);
-      chartData.altitudes.push(prev.altitude);
-      chartData.slopes.push(slopePercent);
-      updateCharts();
+    // schedule next frame according to simulated dt and playback multiplier
+    if (i + 1 < states.length) {
+      const dt_sec = states[i+1].time_s - s.time_s;
+      const wait_ms = Math.max(10, (dt_sec * 1000) / Math.max(0.01, speedMultiplier));
+      playTimeout = setTimeout(() => step(i+1), wait_ms);
     }
+  }
 
-    if (frac >= 1) { animIndex++; segOffset = 0; }
-
-  }, UPDATE_MS);
+  step(0);
 }
 
 const startBtn = document.getElementById('startBtn');
 if (startBtn) {
-  startBtn.addEventListener('click', () => {
+  startBtn.addEventListener('click', async () => {
     if (!window.routePoints || window.routePoints.length === 0) {
       alert('Постройте маршрут прежде чем запускать');
       return;
     }
-    startAnimation(window.routePoints);
+    // Request server-side simulation
+    try {
+      const resp = await fetch('/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ route: window.routePoints, dt: 1.0 })
+      });
+      if (!resp.ok) throw new Error('Ошибка сервера при симуляции');
+      const data = await resp.json();
+      const sim = data.sim || data;
+      if (!sim || sim.length === 0) { alert('Симуляция вернула пустой ряд'); return; }
+      playSimulation(sim);
+    } catch (err) {
+      console.error(err);
+      alert('Не удалось получить симуляцию с сервера');
+    }
   });
 }
 
@@ -271,6 +221,38 @@ if (pauseBtn && resumeBtn) {
     isPaused = false;
     pauseBtn.style.display = 'inline-block';
     resumeBtn.style.display = 'none';
+  });
+}
+const finishBtn = document.getElementById('finishBtn');
+if (finishBtn) {
+  finishBtn.addEventListener('click', () => {
+    // Cancel all pending timeouts to stop playback immediately
+    if (playTimeout) { clearTimeout(playTimeout); playTimeout = null; }
+    // Jump to last state and display it
+    if (simStates && simStates.length > 0) {
+      const lastState = simStates[simStates.length - 1];
+      carMarker.setLatLng([lastState.latitude, lastState.longitude]);
+      traveledLine.addLatLng([lastState.latitude, lastState.longitude]);
+      document.getElementById('speed').innerText = kmh(lastState.speed_m_s);
+      document.getElementById('elapsed').innerText = formatElapsed(Math.round(lastState.time_s * 1000));
+      document.getElementById('distance').innerText = (lastState.distance_km).toFixed(2);
+      document.getElementById('fuel').innerText = (lastState.fuel_l).toFixed(3);
+      // Optionally update charts with all remaining data
+      for (let j = currentStepIndex; j < simStates.length; j++) {
+        const st = simStates[j];
+        if (chartData.times.length === 0 || chartData.times[chartData.times.length - 1] !== Math.floor(st.time_s)) {
+          chartData.times.push(Math.floor(st.time_s));
+          chartData.altitudes.push(st.altitude || 0);
+          chartData.slopes.push(st.slope || 0);
+        }
+      }
+      updateCharts();
+      // Mark as finished
+      isFinish = true;
+      // Optionally hide controls
+      document.getElementById('finishBtn').style.display = 'none';
+      document.getElementById('animControls').style.display = 'none';
+    }
   });
 }
 
