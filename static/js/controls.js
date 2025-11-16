@@ -48,6 +48,8 @@ document.getElementById("clearBtn").addEventListener("click", () => {
   if (startBtn) startBtn.style.display = 'none';
   document.querySelectorAll("#start_lat, #start_lon, #end_lat, #end_lon")
     .forEach(inp => inp.value = "");
+    resetAnimation();
+    document.getElementById("sidebar").style.display = 'none';
 });
 
 document.getElementById("buildBtn").addEventListener("click", async () => {
