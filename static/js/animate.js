@@ -5,6 +5,8 @@ let animIndex = 0;
 let elapsedMs = 0;
 let totalFuel = 0;
 let totalDistance = 0;
+let minSpeedMultiplier = 0.1;
+let maxSpeedMultiplier = 200;
 let speedMultiplier = 1.0;
 let isPaused = false;
 
@@ -233,10 +235,10 @@ function startAnimation(points) {
     // Graph updates
     const timeInSec = Math.floor(elapsedMs / 1000);
     if (chartData.times.length === 0 || chartData.times[chartData.times.length - 1] !== timeInSec) {
-        chartData.times.push(timeInSec);
-        chartData.altitudes.push(prev.altitude);
-        chartData.slopes.push(slopePercent);
-        updateCharts();
+      chartData.times.push(timeInSec);
+      chartData.altitudes.push(prev.altitude);
+      chartData.slopes.push(slopePercent);
+      updateCharts();
     }
 
     if (frac >= 1) { animIndex++; segOffset = 0; }
@@ -244,58 +246,56 @@ function startAnimation(points) {
   }, UPDATE_MS);
 }
 
-window.addEventListener('load', () => {
-  const startBtn = document.getElementById('startBtn');
-  if (startBtn) {
-    startBtn.addEventListener('click', () => {
-      if (!window.routePoints || window.routePoints.length === 0) {
-        alert('Постройте маршрут прежде чем запускать');
-        return;
-      }
-      startAnimation(window.routePoints);
-    });
-  }
+const startBtn = document.getElementById('startBtn');
+if (startBtn) {
+  startBtn.addEventListener('click', () => {
+    if (!window.routePoints || window.routePoints.length === 0) {
+      alert('Постройте маршрут прежде чем запускать');
+      return;
+    }
+    startAnimation(window.routePoints);
+  });
+}
 
-  // Pause button
-  const pauseBtn = document.getElementById('pauseBtn');
-  const resumeBtn = document.getElementById('resumeBtn');
-  if (pauseBtn && resumeBtn) {
-    pauseBtn.addEventListener('click', () => {
-      isPaused = true;
-      pauseBtn.style.display = 'none';
-      resumeBtn.style.display = 'inline-block';
-    });
-    
-    resumeBtn.addEventListener('click', () => {
-      isPaused = false;
-      pauseBtn.style.display = 'inline-block';
-      resumeBtn.style.display = 'none';
-    });
-  }
+// Pause button
+const pauseBtn = document.getElementById('pauseBtn');
+const resumeBtn = document.getElementById('resumeBtn');
+if (pauseBtn && resumeBtn) {
+  pauseBtn.addEventListener('click', () => {
+    isPaused = true;
+    pauseBtn.style.display = 'none';
+    resumeBtn.style.display = 'inline-block';
+  });
+  
+  resumeBtn.addEventListener('click', () => {
+    isPaused = false;
+    pauseBtn.style.display = 'inline-block';
+    resumeBtn.style.display = 'none';
+  });
+}
 
-  const slowBtn = document.getElementById('slowBtn');
-  const fastBtn = document.getElementById('fastBtn');
-  const speedMultInput = document.getElementById('speedMult');
+const slowBtn = document.getElementById('slowBtn');
+const fastBtn = document.getElementById('fastBtn');
+const speedMultInput = document.getElementById('speedMult');
 
-  if (slowBtn) {
-    slowBtn.addEventListener('click', () => {
-      speedMultiplier = Math.max(0.1, speedMultiplier - 0.5);
-      speedMultInput.value = speedMultiplier.toFixed(1);
-    });
-  }
+if (slowBtn) {
+  slowBtn.addEventListener('click', () => {
+    speedMultiplier = Math.max(minSpeedMultiplier, speedMultiplier - 0.5);
+    speedMultInput.value = speedMultiplier.toFixed(1);
+  });
+}
 
-  if (fastBtn) {
-    fastBtn.addEventListener('click', () => {
-      speedMultiplier = Math.min(10, speedMultiplier + 0.5);
-      speedMultInput.value = speedMultiplier.toFixed(1);
-    });
-  }
+if (fastBtn) {
+  fastBtn.addEventListener('click', () => {
+    speedMultiplier = Math.min(maxSpeedMultiplier, speedMultiplier + 0.5);
+    speedMultInput.value = speedMultiplier.toFixed(1);
+  });
+}
 
-  if (speedMultInput) {
-    speedMultInput.addEventListener('change', () => {
-      const val = parseFloat(speedMultInput.value) || 1;
-      speedMultiplier = Math.min(10, Math.max(0.1, val));
-      speedMultInput.value = speedMultiplier.toFixed(1);
-    });
-  }
-});
+if (speedMultInput) {
+  speedMultInput.addEventListener('change', () => {
+    const val = parseFloat(speedMultInput.value) || 1;
+    speedMultiplier = Math.min(maxSpeedMultiplier, Math.max(minSpeedMultiplier, val));
+    speedMultInput.value = speedMultiplier.toFixed(1);
+  });
+}

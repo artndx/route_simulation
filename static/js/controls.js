@@ -25,13 +25,11 @@ map.on("click", e => {
   const { lat, lng } = e.latlng;
   const latStr = lat.toFixed(6), lonStr = lng.toFixed(6);
   if (pickMode === "start") {
-    document.getElementById("start_lat").value = latStr;
-    document.getElementById("start_lon").value = lonStr;
+    document.getElementById("startPnt").value = latStr + ', '+ lonStr;
     if (startMarker) map.removeLayer(startMarker);
     startMarker = L.marker([lat, lng]).addTo(map).bindPopup("Начало").openPopup();
   } else {
-    document.getElementById("end_lat").value = latStr;
-    document.getElementById("end_lon").value = lonStr;
+    document.getElementById("endPnt").value = latStr + ', '+ lonStr;
     if (endMarker) map.removeLayer(endMarker);
     endMarker = L.marker([lat, lng]).addTo(map).bindPopup("Конец").openPopup();
   }
@@ -46,15 +44,21 @@ document.getElementById("clearBtn").addEventListener("click", () => {
   routePoints = [];
   const startBtn = document.getElementById("startBtn");
   if (startBtn) startBtn.style.display = 'none';
-  document.querySelectorAll("#start_lat, #start_lon, #end_lat, #end_lon")
+  document.querySelectorAll("#startPnt, #endPnt")
     .forEach(inp => inp.value = "");
     resetAnimation();
     document.getElementById("sidebar").style.display = 'none';
 });
 
 document.getElementById("buildBtn").addEventListener("click", async () => {
-  const sLat = parseFloat(start_lat.value), sLon = parseFloat(start_lon.value);
-  const eLat = parseFloat(end_lat.value), eLon = parseFloat(end_lon.value);
+  const sPnt = document.getElementById("startPnt").value.split(",");         
+  const sLat = parseFloat(sPnt[0]);     
+  const sLon = parseFloat(sPnt[1]);    
+
+  const ePnt = document.getElementById("endPnt").value.split(",");         
+  const eLat = parseFloat(ePnt[0]);     
+  const eLon = parseFloat(ePnt[1]); 
+
   if (isNaN(sLat) || isNaN(sLon) || isNaN(eLat) || isNaN(eLon)) {
     alert("Укажите координаты начала и конца маршрута.");
     return;

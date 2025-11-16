@@ -1,7 +1,6 @@
-import csv
 import requests
-from .point import Point
-from .point import haversine
+import math
+import csv
 
 def get_altitudes_from_route(route):
     locations = [{"latitude": lat, "longitude": lon} for lon, lat in route]
@@ -11,19 +10,26 @@ def get_altitudes_from_route(route):
     data = response.json()
     return [result["elevation"] for result in data["results"]]
 
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371000  # радиус Земли в метрах
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+
+    a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    distance = R * c
+    return distance
+
 def get_slope(prev_lat, prev_lon, prev_alt, 
               next_lat, next_lon, next_alt):
-    if (prev_lat is None or 
-        prev_lon is None or 
-        prev_alt is None):
-        return 0.0
-   
     hor_dist = haversine(prev_lat, prev_lon, next_lat, next_lon)
     delta_alt = next_alt - prev_alt
     if hor_dist == 0:
         return 0.0
     return (delta_alt / hor_dist) * 100
-
 
 # ====== Построение маршрута по двум точкам ======
 #
@@ -41,13 +47,18 @@ def make_route(start, end):
     route = data['routes'][0]['geometry']['coordinates']
     elevations = get_altitudes_from_route(route)
 
-    result = []
-    result_points = []
     points = []
-    prev_lat = None
-    prev_lon = None
-    prev_alt = None
-    for i in range(len(route)):
+    prev_lon, prev_lat = route[0]
+    prev_alt = elevations[0]
+    slope = 0.0
+    points.append({
+        "latitude": prev_lat,
+        "longitude": prev_lon,
+        "altitude": prev_alt,
+        "slope": slope
+    })
+    
+    for i in range(1, len(route)):
         lon, lat = route[i]
         alt = elevations[i]
         slope = get_slope(prev_lat, prev_lon, prev_alt,
@@ -57,10 +68,7 @@ def make_route(start, end):
         prev_lon = lon
         prev_alt = alt
 
-        pt = Point(lat, lon, alt, slope)
-        points.append(pt)
-        # Вернём подробные точки — широта, долгота, высота, уклон
-        result_points.append({
+        points.append({
             "latitude": lat,
             "longitude": lon,
             "altitude": alt,
@@ -70,7 +78,7 @@ def make_route(start, end):
     save_to_csv(points)
 
     # Возвращаем подробный маршрут с альтитудами и уклоном
-    return result_points
+    return points
 # ======
 
 ROUTE_FILE = "data/route.csv"
@@ -83,6 +91,6 @@ def save_to_csv(points):
     writer.writeheader()
 
     for point in points:
-        writer.writerow(point.to_dict())
+        writer.writerow(point)
     print("✅ Route saved to {}, {} points".format(ROUTE_FILE, len(points)))
 # ======
