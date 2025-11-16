@@ -1,7 +1,6 @@
 import os
 import osmnx as ox
 import pickle
-import requests
 import random
 
 from .point import Point
@@ -25,33 +24,6 @@ def init_graph(graph_center, graph_radius_dist):
             pickle.dump(graph, f)
         print("💾 Map graph saved locally in {}".format(GRAPH_FILE))
         return graph
-
-
-# ======
-
-# ====== Построение маршрута по двум точкам ======
-#
-def make_route(start, end):
-    lat1, lon1 = start
-    lat2, lon2 = end
-
-    base_url = "http://router.project-osrm.org/route/v1/driving/"
-    coords = f"{start[1]},{start[0]};{end[1]},{end[0]}"
-    url = f"{base_url}{coords}?overview=full&geometries=geojson"
-
-    response = requests.get(url)
-    response.raise_for_status()
-    
-    data = response.json()
-    
-    # Извлекаем маршрут
-    route_coords = data['routes'][0]['geometry']['coordinates']  # формат [ [lon, lat], ... ]
-    
-    # Конвертируем в (lat, lon)
-    route_latlon = [(lat, lon) for lon, lat in route_coords]
-    
-    return route_latlon
-
 # ======
 
 # ====== Построение маршрута из точки ======

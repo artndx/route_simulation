@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, jsonify
-from .graph import init_graph, make_route
+from .route import make_route
 
 import os
 
