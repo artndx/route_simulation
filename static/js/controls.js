@@ -1,5 +1,6 @@
 const pickStartBtn = document.getElementById("pickStartBtn");
 const pickEndBtn = document.getElementById("pickEndBtn");
+var routePoints = [];
 
 function deactivatePickMode() {
   pickMode = null;
@@ -42,6 +43,9 @@ document.getElementById("clearBtn").addEventListener("click", () => {
   if (startMarker) map.removeLayer(startMarker);
   if (endMarker) map.removeLayer(endMarker);
   if (routeLine) map.removeLayer(routeLine);
+  routePoints = [];
+  const startBtn = document.getElementById("startBtn");
+  if (startBtn) startBtn.style.display = 'none';
   document.querySelectorAll("#start_lat, #start_lon, #end_lat, #end_lon")
     .forEach(inp => inp.value = "");
 });
@@ -60,7 +64,11 @@ document.getElementById("buildBtn").addEventListener("click", async () => {
   });
   const data = await resp.json();
   if (routeLine) map.removeLayer(routeLine);
-  const coords = data.route.map(pt => [pt[0], pt[1]]);
+  // Ожидаем объект {latitude, longitude, altitude, slope}
+  routePoints = data.route;
+  const coords = routePoints.map(pt => [pt.latitude, pt.longitude]);
   routeLine = L.polyline(coords, { color: "blue", weight: 5 }).addTo(map);
   map.fitBounds(routeLine.getBounds());
+  const startBtn = document.getElementById("startBtn");
+  if (startBtn) startBtn.style.display = "inline-block";
 });

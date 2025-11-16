@@ -42,6 +42,7 @@ def make_route(start, end):
     elevations = get_altitudes_from_route(route)
 
     result = []
+    result_points = []
     points = []
     prev_lat = None
     prev_lon = None
@@ -56,12 +57,20 @@ def make_route(start, end):
         prev_lon = lon
         prev_alt = alt
 
-        points.append(Point(lat, lon, alt, slope))
-        result.append((lat, lon))
+        pt = Point(lat, lon, alt, slope)
+        points.append(pt)
+        # Вернём подробные точки — широта, долгота, высота, уклон
+        result_points.append({
+            "latitude": lat,
+            "longitude": lon,
+            "altitude": alt,
+            "slope": slope
+        })
     
     save_to_csv(points)
 
-    return result
+    # Возвращаем подробный маршрут с альтитудами и уклоном
+    return result_points
 # ======
 
 ROUTE_FILE = "data/route.csv"

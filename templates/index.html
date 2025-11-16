@@ -24,11 +24,38 @@
 
     <button id="buildBtn">Построить маршрут</button>
     <button id="clearBtn" style="background:#aaa;">Очистить</button>
+    <button id="startBtn" style="display:none; background:#28a745; color:#fff;" class="small-btn">Запустить</button>
+    <div id="animControls" style="display:none; margin-top:10px; font-size:12px;">
+      <button id="pauseBtn" class="small-btn" style="width:45%; margin-right:2%;">Пауза</button>
+      <button id="resumeBtn" class="small-btn" style="width:45%; display:none;">Продолжить</button>
+      <div style="margin-top:5px;">
+        <button id="slowBtn" class="small-btn" style="width:30%; margin-right:2%;">−</button>
+        <button id="fastBtn" class="small-btn" style="width:30%; margin-right:2%;">+</button>
+        <input id="speedMult" type="number" min="0.1" max="10" step="0.5" value="1" style="width:35%; height:20px; padding:2px;">
+      </div>
+    </div>
   </div>
 
   <div id="map"></div>
 
+  <div id="sidebar">
+    <h4>Телеметрия</h4>
+    <div id="metrics">
+      <div>Скорость: <span id="speed">0</span> км/ч</div>
+      <div>Время в пути: <span id="elapsed">00:00:00</span></div>
+      <div>Пройденный путь: <span id="distance">0</span> км</div>
+      <div>Расход топлива: <span id="fuel">0</span> л</div>
+      <div>Оптимальная скорость: <span id="opt_speed">—</span> км/ч</div>
+    </div>
+    <h5>Профиль высот</h5>
+    <canvas id="altitudeChart" width="300" height="150"></canvas>
+    <h5>Уклон (%)</h5>
+    <canvas id="slopeChart" width="300" height="150"></canvas>
+  </div>
+
   <script>
     const CENTER = [parseFloat("{{ center_lat }}"), parseFloat("{{ center_lon }}")];
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/static/js/animate.js"></script>
 {% endblock %}
