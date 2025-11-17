@@ -54,10 +54,17 @@ def simulate_route(points, dt=1.0):
         seg = segments[si]
         seg_dist = seg['distance']
         slope_percent = points[si+1].get('slope', 0.0)
-        rotation_angle = rotations[si+1] if si+1 < len(rotations) else 0.0
 
-        curv_factor = 1.0 - min(0.6, (rotation_angle / 180.0) * 1.6)
+        # rotation_angle = rotations[si+1] if si+1 < len(rotations) else 0.0
+        # curv_factor = 1.0 - min(0.6, (rotation_angle / 180.0) * 1.6)
+        near_rotations = rotations[si+1 : si+3]
+        if not near_rotations:
+            average_rotation = 0.0
+        else:
+            average_rotation = sum(near_rotations) / len(near_rotations)
 
+        curv_factor = 1.0 - min(0.8, (average_rotation / 180.0) * 1.6)
+            
         seg_target_speed = base_speed * (1 - slope_percent * 0.012) * curv_factor
         seg_target_speed = max(min_speed, min(max_speed, seg_target_speed))
 
