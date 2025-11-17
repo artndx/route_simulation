@@ -39,7 +39,8 @@ def api_route():
     return jsonify(route=route)
 # ======
 
-
+# ==== Симуляция маршрута ====
+#
 @app.route('/simulate', methods=['POST'])
 def api_simulate():
     data = request.get_json()
@@ -48,3 +49,4 @@ def api_simulate():
     # Route is expected to be list of {latitude, longitude, altitude, slope}
     sim = simulate_route(route, dt=float(dt))
     return jsonify(sim=sim)
+# ====

@@ -193,7 +193,7 @@ if (startBtn) {
       const resp = await fetch('/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ route: window.routePoints, dt: 1.0 })
+        body: JSON.stringify({ route: window.routePoints, dt: 0.05 })
       });
       if (!resp.ok) throw new Error('Ошибка сервера при симуляции');
       const data = await resp.json();

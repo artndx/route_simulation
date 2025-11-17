@@ -1,7 +1,9 @@
 import requests
-import math
 import csv
+from .geometry import haversine
 
+# ====== Получение высот по точкам маршрута ======
+#
 def get_altitudes_from_route(route):
     locations = [{"latitude": lat, "longitude": lon} for lon, lat in route]
     url = "https://api.open-elevation.com/api/v1/lookup"
@@ -9,20 +11,10 @@ def get_altitudes_from_route(route):
     response.raise_for_status()
     data = response.json()
     return [result["elevation"] for result in data["results"]]
+# ======
 
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000  # радиус Земли в метрах
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    delta_phi = math.radians(lat2 - lat1)
-    delta_lambda = math.radians(lon2 - lon1)
-
-    a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    distance = R * c
-    return distance
-
+# ====== Вычисление уклона ======
+#
 def get_slope(prev_lat, prev_lon, prev_alt, 
               next_lat, next_lon, next_alt):
     hor_dist = haversine(prev_lat, prev_lon, next_lat, next_lon)
@@ -30,6 +22,7 @@ def get_slope(prev_lat, prev_lon, prev_alt,
     if hor_dist == 0:
         return 0.0
     return (delta_alt / hor_dist) * 100
+# ======
 
 # ====== Построение маршрута по двум точкам ======
 #
