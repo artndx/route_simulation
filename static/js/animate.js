@@ -77,24 +77,48 @@ function playSimulation(states) {
   });
 
   const ghostIcon = L.divIcon({
-    html: '<div style="background:#a82020ff;width:20px;height:20px;border-radius:50%;border:2px solid #a82020ff;"></div>',
+    html: '<div style="background:#bd1818ff;width:20px;height:20px;border-radius:50%;border:2px solid #bd1818ff;"></div>',
     iconSize: [20, 20],
     className: '' // пустой, чтобы Leaflet не добавлял стандартный
   });
 
   carMarker = L.marker([state.latitude, state.longitude], { icon: carIcon }).addTo(map);
-  ghostMarker = L.marker([state.latitude, state.longitude],  { icon: ghostIcon }).addTo(map);
+  ghostMarker = L.marker([state.latitude, state.longitude], { icon: ghostIcon }).addTo(map);
   traveledLine = L.polyline([[state.latitude, state.longitude]], { color: 'red', weight: 4 }).addTo(map);
   initCharts();
 
-  async function step(i) {
+  async function animateOptinalCar(i) {
     if (isFinish || i >= states.length) {
       return;
     }
-    if (isPaused) { playTimeout = setTimeout(() => step(i), 200); return; }
-
+    if (isPaused) { playTimeout = setTimeout(() => animateOptinalCar(i), 200); return; }
 
     optimized_state = states[i];
+
+    ghostMarker.setLatLng([optimized_state.latitude, optimized_state.longitude]);
+    traveledLine.addLatLng([optimized_state.latitude, optimized_state.longitude]);
+
+    document.getElementById('opt_speed').innerText = kmh(optimized_state.speed_m_s);
+    document.getElementById('opt_distance').innerText = (optimized_state.distance_km).toFixed(2);
+    document.getElementById('opt_fuel').innerText = (optimized_state.fuel_l).toFixed(3);
+
+    if(isComplete){
+      document.getElementById('elapsed').innerText = formatElapsed(Math.round(optimized_state.time_s * 1000));
+    }
+
+    if (i + 1 < states.length) {
+      const dt_sec = states[i+1].time_s - optimized_state.time_s;
+      const wait_ms = Math.max(10, (dt_sec * 1000) / Math.max(0.01, speedMultiplier));
+      playTimeout = setTimeout(() => animateOptinalCar(i+1), wait_ms);
+    }
+  }
+
+  async function animateControlledCar() {
+    if (isFinish || isComplete) {
+      return;
+    }
+    if (isPaused) { playTimeout = setTimeout(() => animateControlledCar(), 200); return; }
+
     current_speed = 0.0;
     if(isOptimalSpeed){
       current_speed = parseFloat(document.getElementById('opt_speed').innerText) || 20;
@@ -117,27 +141,22 @@ function playSimulation(states) {
         current_state = data.state;
         if(current_state.is_finish){
           isComplete = true;
-          current_speed = 0.0
         }
       } catch (err) {
         alert(err);
       }
-    } else {
+    }
+
+    if(isComplete)
+    {
       current_speed = 0.0
     }
 
     carMarker.setLatLng([current_state.latitude, current_state.longitude]);
 
-    ghostMarker.setLatLng([optimized_state.latitude, optimized_state.longitude]);
-    traveledLine.addLatLng([optimized_state.latitude, optimized_state.longitude]);
-
     document.getElementById('cur_speed').value = kmh(current_state.speed_m_s);
     document.getElementById('cur_distance').innerText = (current_state.distance_km).toFixed(2);
     document.getElementById('cur_fuel').innerText = (current_state.fuel_l).toFixed(3);
-
-    document.getElementById('opt_speed').innerText = kmh(optimized_state.speed_m_s);
-    document.getElementById('opt_distance').innerText = (optimized_state.distance_km).toFixed(2);
-    document.getElementById('opt_fuel').innerText = (optimized_state.fuel_l).toFixed(3);
 
     document.getElementById('elapsed').innerText = formatElapsed(Math.round(current_state.time_s * 1000));
     chartData.times.push(Math.floor(current_state.time_s));
@@ -145,12 +164,52 @@ function playSimulation(states) {
     chartData.slopes.push(current_state.slope || 0);
     updateCharts();
 
-    if (i + 1 < states.length) {
-      const dt_sec = states[i+1].time_s - current_state.time_s;
-      const wait_ms = Math.max(10, (dt_sec * 1000) / Math.max(0.01, speedMultiplier));
-      playTimeout = setTimeout(() => step(i+1), wait_ms);
-    }
+    animateControlledCar();
   }
 
-  step(0);
+  async function animateFuelRateDiff() {
+    if (isFinish || isComplete) {
+      return;
+    }
+    if (isPaused) { playTimeout = setTimeout(() => animateFuelRateDiff(), 200); return; }
+
+    const curFuel = parseFloat(document.getElementById('cur_fuel').innerText);
+    const optFuel = parseFloat(document.getElementById('opt_fuel').innerText);
+
+    const curDiffSpan = document.getElementById('cur_fuel_diff');
+    const optDiffSpan = document.getElementById('opt_fuel_diff');
+
+    if (curFuel > 0 && optFuel > 0) {
+        const curFuelDiff = (curFuel - optFuel) / optFuel * 100; 
+        const curFuelSign = curFuelDiff >= 0 ? "+" : "–";
+        const curFuelDiffAbs = Math.abs(curFuelDiff).toFixed(1) + "%";
+        if(curFuelSign == "+"){
+          curDiffSpan.style.color = "red";
+        } else {
+          curDiffSpan.style.color = "green";
+        }
+        curDiffSpan.style.display = "inline";
+        curDiffSpan.innerText = `${curFuelSign}${curFuelDiffAbs}`;
+
+        const optFuelDiff = (optFuel - curFuel) / curFuel * 100; 
+        const optFuelSign = optFuelDiff >= 0 ? "+" : "–";
+        const optFuelDiffAbs = Math.abs(optFuelDiff).toFixed(1) + "%";
+        optDiffSpan.innerText = `${optFuelSign}${optFuelDiffAbs}`;
+        optDiffSpan.style.display = "inline";
+        if(optFuelSign == "+"){
+          optDiffSpan.style.color = "red";
+        } else {
+          optDiffSpan.style.color = "green";
+        }
+    } else {
+        curDiffSpan.style.display = "none";
+        optDiffSpan.style.display = "none";
+    }
+
+    animateFuelRateDiff();
+  }
+
+  animateOptinalCar(0);
+  animateControlledCar();
+  animateFuelRateDiff();
 }
