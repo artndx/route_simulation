@@ -64,12 +64,11 @@ class SimulationRouter:
         self.route = route
         self.time_step = time_step
         self.vehicle = vehicle
-        self.states = []
     
     def simulate_optimize_route(self):
-        self.states = []
+        states = []
         if not self.route or len(self.route) < 2:
-            return self.states
+            return states
 
         segments = segments_from_route(self.route)
         rotations = rotation_angles_from_segments(segments)
@@ -80,8 +79,6 @@ class SimulationRouter:
             seg_dist = seg['distance']
             slope_percent = self.route[si+1].get('slope', 0.0)
 
-            # rotation_angle = rotations[si+1] if si+1 < len(rotations) else 0.0
-            # curv_factor = 1.0 - min(0.6, (rotation_angle / 180.0) * 1.6)
             near_rotations = rotations[si+1 : si+3]
             if not near_rotations:
                 average_rotation = 0.0
@@ -114,11 +111,15 @@ class SimulationRouter:
                 state.point.altitude = alt
                 state.point.slope = slope_percent
 
-                self.states.append(state.to_dict())
+                states.append(state.to_dict())
 
                 remaining_dist -= moved_dist
 
-        return self.states
+        return states
+    
+    def simulate_route(self, current_speed):
+        # ... 
+        pass
 # ======
 
 

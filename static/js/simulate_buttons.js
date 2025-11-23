@@ -1,3 +1,6 @@
+let simStates = null;
+let playTimeout = null;
+
 // Кнопка Запустить
 const startBtn = document.getElementById('startBtn');
 if (startBtn) {
@@ -17,7 +20,8 @@ if (startBtn) {
       const data = await resp.json();
       const sim = data.sim || data;
       if (!sim || sim.length === 0) { alert('Симуляция вернула пустой ряд'); return; }
-      playSimulation(sim);
+      simStates = sim;
+      playSimulation(simStates);
     } catch (err) {
       console.error(err);
       alert('Не удалось получить симуляцию с сервера');
@@ -46,13 +50,9 @@ if (pauseBtn && resumeBtn) {
 const finishBtn = document.getElementById('finishBtn');
 if (finishBtn) {
   finishBtn.addEventListener('click', () => {
-    // Cancel all pending timeouts to stop playback immediately
     if (playTimeout) { clearTimeout(playTimeout); playTimeout = null; }
-    // Jump to last state and display it
     if (simStates && simStates.length > 0) {
-      const lastState = simStates[simStates.length - 1];
-      carMarker.setLatLng([lastState.latitude, lastState.longitude]);
-      traveledLine.addLatLng([lastState.latitude, lastState.longitude]);
+      lastState = simStates[simStates.length - 1];
       document.getElementById('speed').innerText = kmh(lastState.speed_m_s);
       document.getElementById('elapsed').innerText = formatElapsed(Math.round(lastState.time_s * 1000));
       document.getElementById('distance').innerText = (lastState.distance_km).toFixed(2);
@@ -60,6 +60,8 @@ if (finishBtn) {
       // Optionally update charts with all remaining data
       for (let j = currentStepIndex; j < simStates.length; j++) {
         const st = simStates[j];
+        carMarker.setLatLng([st.latitude, st.longitude]);
+        traveledLine.addLatLng([st.latitude, st.longitude]);
         if (chartData.times.length === 0 || chartData.times[chartData.times.length - 1] !== Math.floor(st.time_s)) {
           chartData.times.push(Math.floor(st.time_s));
           chartData.altitudes.push(st.altitude || 0);
@@ -67,9 +69,7 @@ if (finishBtn) {
         }
       }
       updateCharts();
-      // Mark as finished
       isFinish = true;
-      // Optionally hide controls
       document.getElementById('finishBtn').style.display = 'none';
       document.getElementById('animControls').style.display = 'none';
     }

@@ -53,9 +53,6 @@ function resetAnimation() {
   chartData = { times: [], altitudes: [], slopes: [] };
 }
 
-let simStates = null;
-let playTimeout = null;
-
 function playSimulation(states) {
   if (!states || states.length === 0) return;
   resetAnimation();
@@ -63,35 +60,34 @@ function playSimulation(states) {
   document.getElementById("sidebar").style.display = 'inline-block';
   document.getElementById('startBtn').style.display = 'none';
   document.getElementById('finishBtn').style.display = 'inline-block';
-  simStates = states;
 
-  const p0 = states[0];
-  carMarker = L.marker([p0.latitude, p0.longitude]).addTo(map);
-  traveledLine = L.polyline([[p0.latitude, p0.longitude]], { color: 'red', weight: 4 }).addTo(map);
+  const state = states[0];
+  carMarker = L.marker([state.latitude, state.longitude]).addTo(map);
+  traveledLine = L.polyline([[state.latitude, state.longitude]], { color: 'red', weight: 4 }).addTo(map);
   initCharts();
 
-  function step(i) {
+  async function step(i) {
     if (isFinish || i >= states.length) {
       return;
     }
     if (isPaused) { playTimeout = setTimeout(() => step(i), 200); return; }
 
-    const s = states[i];
-    carMarker.setLatLng([s.latitude, s.longitude]);
-    traveledLine.addLatLng([s.latitude, s.longitude]);
+    const state = states[i];
+    carMarker.setLatLng([s.latitude, state.longitude]);
+    traveledLine.addLatLng([s.latitude, state.longitude]);
 
-    document.getElementById('speed').innerText = kmh(s.speed_m_s);
-    document.getElementById('elapsed').innerText = formatElapsed(Math.round(s.time_s * 1000));
-    document.getElementById('distance').innerText = (s.distance_km).toFixed(2);
-    document.getElementById('fuel').innerText = (s.fuel_l).toFixed(3);
+    document.getElementById('speed').innerText = kmh(state.speed_m_s);
+    document.getElementById('elapsed').innerText = formatElapsed(Math.round(state.time_s * 1000));
+    document.getElementById('distance').innerText = (state.distance_km).toFixed(2);
+    document.getElementById('fuel').innerText = (state.fuel_l).toFixed(3);
 
-    chartData.times.push(Math.floor(s.time_s));
-    chartData.altitudes.push(s.altitude || 0);
-    chartData.slopes.push(s.slope || 0);
+    chartData.times.push(Math.floor(state.time_s));
+    chartData.altitudes.push(state.altitude || 0);
+    chartData.slopes.push(state.slope || 0);
     updateCharts();
 
     if (i + 1 < states.length) {
-      const dt_sec = states[i+1].time_s - s.time_s;
+      const dt_sec = states[i+1].time_s - state.time_s;
       const wait_ms = Math.max(10, (dt_sec * 1000) / Math.max(0.01, speedMultiplier));
       playTimeout = setTimeout(() => step(i+1), wait_ms);
     }
