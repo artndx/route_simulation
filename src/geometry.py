@@ -1,5 +1,15 @@
 import math
 
+# ====== Точка на маршруте ======
+#
+class Point:
+    def __init__(self):
+        self.latitude = 0
+        self.longitude = 0
+        self.altitude = 0
+        self.slope = 0
+# ======
+
 # ====== Вычисление расстояния ======
 #
 def haversine(lat1, lon1, lat2, lon2):

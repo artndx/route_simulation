@@ -1,6 +1,6 @@
 from flask import Flask, request, render_template, jsonify
 from .route import make_route
-from .simulate import simulate_route
+from .simulate import SimulationRouter
 
 import os
 
@@ -39,6 +39,8 @@ def api_route():
     return jsonify(route=route)
 # ======
 
+SIMULATION_ROUTER = None
+
 # ==== Симуляция маршрута ====
 #
 @app.route('/simulate', methods=['POST'])
@@ -46,7 +48,7 @@ def api_simulate():
     data = request.get_json()
     route = data.get('route')
     dt = data.get('dt', 1.0)
-    # Route is expected to be list of {latitude, longitude, altitude, slope}
-    sim = simulate_route(route, dt=float(dt))
+    SIMULATION_ROUTER = SimulationRouter(route, dt)
+    sim = SIMULATION_ROUTER.simulate_optimize_route()
     return jsonify(sim=sim)
 # ====
