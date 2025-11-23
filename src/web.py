@@ -31,7 +31,7 @@ def index():
 # ==== Построение маршрута ====
 #
 @app.route("/build_route", methods=["POST"])
-def api_route():
+def api_build_route():
     data = request.get_json()
     start = data["start"]
     end = data["end"]
@@ -48,7 +48,26 @@ def api_simulate():
     data = request.get_json()
     route = data.get('route')
     dt = data.get('dt', 1.0)
+
+    global SIMULATION_ROUTER  
     SIMULATION_ROUTER = SimulationRouter(route, dt)
     sim = SIMULATION_ROUTER.simulate_optimize_route()
+
     return jsonify(sim=sim)
+# ====
+
+# ==== Движение по маршруту ====
+#
+@app.route('/drive_route', methods=['POST'])
+def api_drive_route():
+    data = request.get_json()
+    currend_speed = float(data.get('current_speed'))
+
+    global SIMULATION_ROUTER
+
+    if SIMULATION_ROUTER is None:
+        return jsonify(error="Simulation not initialized."), 400
+    
+    state = SIMULATION_ROUTER.drive_route(currend_speed)
+    return jsonify(state=state)
 # ====

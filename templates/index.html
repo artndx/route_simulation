@@ -40,10 +40,18 @@
   <div id="sidebar" style="display:none;">
     <h4>Телеметрия</h4>
     <div id="metrics">
-      <div>Скорость: <span id="speed">0</span> км/ч</div>
+      <div class="coord-block">
+        <div>Текущая скорость: <input id="cur_speed" placeholder="" value="20.0" style="width: 40px;"> км/ч</div>
+        <div>Установить оптимальную: <input type="checkbox" id="useOptimalSpeed" title="тык" style="width: 10px;"></div>
+        <div>Пройденный путь: <span id="cur_distance">0</span> км</div>
+        <div>Расход топлива: <span id="cur_fuel">0</span> л</div>
+      </div>
+      <div class="coord-block">
+        <div>Оптимальная скорость: <span id="opt_speed">0</span> км/ч</div>
+        <div>Пройденный путь: <span id="opt_distance">0</span> км</div>
+        <div>Расход топлива: <span id="opt_fuel">0</span> л</div>
+      </div>
       <div>Время в пути: <span id="elapsed">00:00:00</span></div>
-      <div>Пройденный путь: <span id="distance">0</span> км</div>
-      <div>Расход топлива: <span id="fuel">0</span> л</div>
     </div>
     <h5>Профиль высот</h5>
     <canvas id="altitudeChart" width="300" height="150"></canvas>
