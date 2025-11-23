@@ -70,7 +70,6 @@ def make_route(start, end):
     
     save_to_csv(points)
 
-    # Возвращаем подробный маршрут с альтитудами и уклоном
     return points
 # ======
 
