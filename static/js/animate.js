@@ -6,12 +6,15 @@ let animIndex = 0;
 let elapsedMs = 0;
 let totalFuel = 0;
 let totalDistance = 0;
+
 let minSpeedMultiplier = 0.1;
 let maxSpeedMultiplier = 200;
 let speedMultiplier = 1.0;
+
 let isPaused = false;
 let isFinish = false;
-let isComplete = false;
+let isCompleteControlledRoute = false;
+let isCompleteOptionalRoute = false;
 let currentStepIndex = 0;
 
 let baseSpeed = 15;                           // m/s baseline
@@ -29,7 +32,8 @@ function formatElapsed(ms) {
 
 function resetAnimation() {
   if (animTimer) { clearInterval(animTimer); animTimer = null; }
-  if (playTimeout) { clearTimeout(playTimeout); playTimeout = null; }
+  if (playTimeoutOptional) { clearTimeout(playTimeoutOptional); playTimeoutOptional = null; }
+  if (playTimeoutControlled) { clearTimeout(playTimeoutControlled); playTimeoutControlled = null; }
   if (carMarker) { map.removeLayer(carMarker); carMarker = null; }
   if (ghostMarker) { map.removeLayer(ghostMarker); ghostMarker = null; }
   if (traveledLine) { map.removeLayer(traveledLine); traveledLine = null; }
@@ -46,12 +50,12 @@ function resetAnimation() {
   document.getElementById('cur_speed').innerText = '0';
   document.getElementById('cur_distance').innerText = '0';
   document.getElementById('cur_fuel').innerText = '0';
+  document.getElementById('cur_elapsed').innerText = '00:00:00';
 
   document.getElementById('opt_speed').innerText = '0';
   document.getElementById('opt_distance').innerText = '0';
   document.getElementById('opt_fuel').innerText = '0';
-
-  document.getElementById('elapsed').innerText = '00:00:00';
+  document.getElementById('opt_elapsed').innerText = '00:00:00';
   
   document.getElementById('animControls').style.display = 'none';
   document.getElementById('pauseBtn').style.display = 'inline-block';
@@ -87,11 +91,12 @@ function playSimulation(states) {
   traveledLine = L.polyline([[state.latitude, state.longitude]], { color: 'red', weight: 4 }).addTo(map);
   initCharts();
 
-  async function animateOptinalCar(i) {
+  async function animateOptimizedCar(i) {
     if (isFinish || i >= states.length) {
+      isCompleteOptionalRoute = true;
       return;
     }
-    if (isPaused) { playTimeout = setTimeout(() => animateOptinalCar(i), 200); return; }
+    if (isPaused) { playTimeoutOptional = setTimeout(() => animateOptimizedCar(i), 200); return; }
 
     optimized_state = states[i];
 
@@ -101,23 +106,20 @@ function playSimulation(states) {
     document.getElementById('opt_speed').innerText = kmh(optimized_state.speed_m_s);
     document.getElementById('opt_distance').innerText = (optimized_state.distance_km).toFixed(2);
     document.getElementById('opt_fuel').innerText = (optimized_state.fuel_l).toFixed(3);
-
-    if(isComplete){
-      document.getElementById('elapsed').innerText = formatElapsed(Math.round(optimized_state.time_s * 1000));
-    }
+    document.getElementById('opt_elapsed').innerText = formatElapsed(Math.round(optimized_state.time_s * 1000));
 
     if (i + 1 < states.length) {
-      const dt_sec = states[i+1].time_s - optimized_state.time_s;
-      const wait_ms = Math.max(10, (dt_sec * 1000) / Math.max(0.01, speedMultiplier));
-      playTimeout = setTimeout(() => animateOptinalCar(i+1), wait_ms);
+      const wait_ms = Math.max(10, (time_step * 1000) / Math.max(0.01, speedMultiplier));
+      playTimeoutOptional = setTimeout(() => animateOptimizedCar(i+1), wait_ms);
     }
   }
 
   async function animateControlledCar() {
-    if (isFinish || isComplete) {
+    if (isFinish) {
+      isCompleteControlledRoute = true;
       return;
     }
-    if (isPaused) { playTimeout = setTimeout(() => animateControlledCar(), 200); return; }
+    if (isPaused) { playTimeoutOptional = setTimeout(() => animateControlledCar(), 200); return; }
 
     current_speed = 0.0;
     if(isOptimalSpeed){
@@ -129,7 +131,7 @@ function playSimulation(states) {
     current_speed /= 3.6;
 
     current_state = null;
-    if(!isComplete){
+    if(!isCompleteControlledRoute){
       try {
         const resp = await fetch('/drive_route', {
           method: 'POST',
@@ -140,14 +142,14 @@ function playSimulation(states) {
         const data = await resp.json();
         current_state = data.state;
         if(current_state.is_finish){
-          isComplete = true;
+          isCompleteControlledRoute = true;
         }
       } catch (err) {
         alert(err);
       }
     }
 
-    if(isComplete)
+    if(isCompleteControlledRoute)
     {
       current_speed = 0.0
     }
@@ -157,18 +159,21 @@ function playSimulation(states) {
     document.getElementById('cur_speed').value = kmh(current_state.speed_m_s);
     document.getElementById('cur_distance').innerText = (current_state.distance_km).toFixed(2);
     document.getElementById('cur_fuel').innerText = (current_state.fuel_l).toFixed(3);
+    document.getElementById('cur_elapsed').innerText = formatElapsed(Math.round(current_state.time_s * 1000));
 
-    document.getElementById('elapsed').innerText = formatElapsed(Math.round(current_state.time_s * 1000));
     chartData.times.push(Math.floor(current_state.time_s));
     chartData.altitudes.push(current_state.altitude || 0);
     chartData.slopes.push(current_state.slope || 0);
     updateCharts();
 
-    animateControlledCar();
+    if (!isCompleteControlledRoute) {
+        const wait_ms = Math.max(10, (time_step * 1000) / Math.max(0.01, speedMultiplier));
+        playTimeoutOptional = setTimeout(() => animateControlledCar(), wait_ms);
+    }
   }
 
   async function animateFuelRateDiff() {
-    if (isFinish || isComplete) {
+    if (isCompleteControlledRoute || isCompleteOptionalRoute) {
       return;
     }
     if (isPaused) { playTimeout = setTimeout(() => animateFuelRateDiff(), 200); return; }
@@ -206,10 +211,17 @@ function playSimulation(states) {
         optDiffSpan.style.display = "none";
     }
 
-    animateFuelRateDiff();
+    if (!isCompleteControlledRoute && !isCompleteOptionalRoute) {
+        const wait_ms = Math.max(10, (time_step * 1000) / Math.max(0.01, speedMultiplier));
+        playTimeoutControlled = setTimeout(() => animateFuelRateDiff(), wait_ms);
+    }
   }
 
-  animateOptinalCar(0);
-  animateControlledCar();
-  animateFuelRateDiff();
+  try{
+    animateOptimizedCar(0);
+    animateControlledCar();
+    // animateFuelRateDiff();
+  } catch(err){
+    alert(err);
+  }
 }

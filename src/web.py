@@ -47,10 +47,10 @@ SIMULATION_ROUTER = None
 def api_simulate():
     data = request.get_json()
     route = data.get('route')
-    dt = data.get('dt', 1.0)
+    time_step = data.get('time_step', 1.0)
 
     global SIMULATION_ROUTER  
-    SIMULATION_ROUTER = SimulationRouter(route, dt)
+    SIMULATION_ROUTER = SimulationRouter(route, time_step)
     sim = SIMULATION_ROUTER.simulate_optimize_route()
 
     return jsonify(sim=sim)

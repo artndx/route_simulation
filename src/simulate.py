@@ -1,10 +1,14 @@
-import math
+import csv
+
 from .geometry import haversine
 from .geometry import direction
 from .geometry import angle_diff
 from .geometry import Point
 
 from .vehicle import Vehicle
+
+OPTIMIZED_STATES_FILE = "data/optimized_states.csv"
+CONTROLLED_STATES_FILE = "data/controlled_states.csv"
 
 # ==== Разбиение маршрута на участки (расстояние + направление) ====
 # 
@@ -40,6 +44,7 @@ class State:
         self.speed = 0.0
         self.dist_traveled = 0.0
         self.fuel_used = 0.0
+        self.is_finished = False
 
     def to_dict(self):
         return {
@@ -50,16 +55,19 @@ class State:
             'slope': self.point.slope,
             'speed_m_s': round(self.speed, 3),
             'distance_km': round(self.dist_traveled/1000.0, 6),
-            'fuel_l': round(self.fuel_used, 6)
+            'fuel_l': round(self.fuel_used, 6),
+            'if_finished':self.is_finished
         }
 # ======
+
+_controlled_states = []
 
 # ==== Класс симуляции маршрута ====
 #
 class SimulationRouter:
     def __init__(self, 
                  route, 
-                 time_step = 1,
+                 time_step = 0.05,
                  vehicle = Vehicle()):
         self.route = route
         self.segments = segments_from_route(self.route)
@@ -76,26 +84,12 @@ class SimulationRouter:
         if not self.route or len(self.route) < 2:
             return []
 
-        base_speed = 15.0   # m/s
-        max_speed = 40.0
-        min_speed = 2.0
-        accel = 1.5         # m/s^2
-        decel = 3.0         # m/s^2
-        base_fuel = 0.0008  # L/s at base speed
-
         states = []
-        time_s = 0.0
-        speed = 0.0
-        dist_traveled = 0.0
-        fuel_used = 0.0
-
+        state = State()
         for si in range(len(self.segments)):
-            seg = self.segments[si]
-            seg_dist = seg['distance']
+            seg_dist = self.segments[si]['distance']
             slope_percent = self.route[si+1].get('slope', 0.0)
 
-            # rotation_angle = rotations[si+1] if si+1 < len(rotations) else 0.0
-            # curv_factor = 1.0 - min(0.6, (rotation_angle / 180.0) * 1.6)
             near_rotations = self.rotations[si+1 : si+3]
             if not near_rotations:
                 average_rotation = 0.0
@@ -104,47 +98,31 @@ class SimulationRouter:
 
             curv_factor = 1.0 - min(0.8, (average_rotation / 180.0) * 1.6)
                 
-            seg_target_speed = base_speed * (1 - slope_percent * 0.012) * curv_factor
-            seg_target_speed = max(min_speed, min(max_speed, seg_target_speed))
-
             remaining_dist = seg_dist
             while remaining_dist > 1e-3:
-                if speed < seg_target_speed:
-                    speed = min(seg_target_speed, speed + accel * self.time_step)
-                else:
-                    speed = max(seg_target_speed, speed - decel * self.time_step)
-
-                moved_dist = speed * self.time_step
+                params = self.vehicle.optimized_move(curv_factor, slope_percent, state.speed, self.time_step)
+       
+                moved_dist = params['moved_dist']
                 if moved_dist > remaining_dist:
                     moved_dist = remaining_dist
-                frac = moved_dist / seg_dist if seg_dist > 0 else 0
 
                 p0 = self.route[si]
                 p1 = self.route[si+1]
-                lat = p0['latitude'] + (p1['latitude'] - p0['latitude']) * (1 - (remaining_dist - moved_dist) / seg_dist)
-                lon = p0['longitude'] + (p1['longitude'] - p0['longitude']) * (1 - (remaining_dist - moved_dist) / seg_dist)
-                alt = p0.get('altitude', 0.0) + (p1.get('altitude', 0.0) - p0.get('altitude', 0.0)) * (1 - (remaining_dist - moved_dist) / seg_dist)
+                state.point.latitude = p0['latitude'] + (p1['latitude'] - p0['latitude']) * (1 - (remaining_dist - moved_dist) / seg_dist)
+                state.point.longitude = p0['longitude'] + (p1['longitude'] - p0['longitude']) * (1 - (remaining_dist - moved_dist) / seg_dist)
+                state.point.altitude = p0.get('altitude', 0.0) + (p1.get('altitude', 0.0) - p0.get('altitude', 0.0)) * (1 - (remaining_dist - moved_dist) / seg_dist)
+                state.point.slope = slope_percent
 
-                fuel_factor = max(0.1, speed / base_speed)
-                fuel_rate = base_fuel * fuel_factor * fuel_factor * (1 + (slope_percent * 0.02))
-                fuel_used += fuel_rate * self.time_step
+                state.speed = params['speed']
+                state.fuel_used += params['fuel_used']
+                state.dist_traveled += moved_dist
+                state.time_s += self.time_step
 
-                dist_traveled += moved_dist
-                time_s += self.time_step
-
-                states.append({
-                    'time_s': round(time_s, 3),
-                    'latitude': lat,
-                    'longitude': lon,
-                    'altitude': alt,
-                    'slope': slope_percent,
-                    'speed_m_s': round(speed, 3),
-                    'distance_km': round(dist_traveled/1000.0, 6),
-                    'fuel_l': round(fuel_used, 6)
-                })
+                states.append(state.to_dict())
 
                 remaining_dist -= moved_dist
-
+                
+        # self.save_to_csv(states, OPTIMIZED_STATES_FILE)
         return states
     
     def drive_route(self, current_speed):
@@ -213,20 +191,25 @@ class SimulationRouter:
                 break
 
         # --- Формируем итоговый словарь ---
-        finished = (self.cur_segment_index >= len(self.segments))
+        self.current_state.is_finished = (self.cur_segment_index >= len(self.segments))
+        
+        global _controlled_states
+        _controlled_states.append(self.current_state)
+        if(self.current_state.is_finished):
+            self.save_to_csv(_controlled_states, CONTROLLED_STATES_FILE)
+            _controlled_states.clear()
 
-        return {
-            'time_s':      self.current_state.time_s,
-            'latitude':    self.current_state.point.latitude,
-            'longitude':   self.current_state.point.longitude,
-            'altitude':    self.current_state.point.altitude,
-            'slope':       self.current_state.point.slope,
-            'speed_m_s':   self.current_state.speed,
-            'distance_km': self.current_state.dist_traveled / 1000.0,
-            'fuel_l':      self.current_state.fuel_used,
-            'is_finish':   finished
-        }
+        return self.current_state.to_dict()
 
+    def save_to_csv(self, states, path):
+        file = open(path, "w", newline="", encoding="utf-8")
+        writer = csv.DictWriter(file, fieldnames=["time_s", "latitude", "longitude", "altitude", "slope", 
+                                                  "speed_m_s", "distance_km", "fuel_l", "is_finish"])
+        writer.writeheader()
+
+        for state in states:
+            writer.writerow(state)
+        print("✅ Route saved to {}, {} points".format(path, len(states)))
 # ======
 
 
