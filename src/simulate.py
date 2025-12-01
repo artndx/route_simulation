@@ -56,7 +56,7 @@ class State:
             'speed_m_s': round(self.speed, 3),
             'distance_km': round(self.dist_traveled/1000.0, 6),
             'fuel_l': round(self.fuel_used, 6),
-            'if_finished':self.is_finished
+            'is_finished':self.is_finished
         }
 # ======
 
@@ -78,7 +78,6 @@ class SimulationRouter:
         self.cur_segment_index = None
         self.dist_on_segment = None
         self.current_state = None
-
     
     def simulate_optimize_route(self):
         if not self.route or len(self.route) < 2:
@@ -194,7 +193,7 @@ class SimulationRouter:
         self.current_state.is_finished = (self.cur_segment_index >= len(self.segments))
         
         global _controlled_states
-        _controlled_states.append(self.current_state)
+        _controlled_states.append(self.current_state.to_dict())
         if(self.current_state.is_finished):
             self.save_to_csv(_controlled_states, CONTROLLED_STATES_FILE)
             _controlled_states.clear()
@@ -204,7 +203,7 @@ class SimulationRouter:
     def save_to_csv(self, states, path):
         file = open(path, "w", newline="", encoding="utf-8")
         writer = csv.DictWriter(file, fieldnames=["time_s", "latitude", "longitude", "altitude", "slope", 
-                                                  "speed_m_s", "distance_km", "fuel_l", "is_finish"])
+                                                  "speed_m_s", "distance_km", "fuel_l", "is_finished"])
         writer.writeheader()
 
         for state in states:

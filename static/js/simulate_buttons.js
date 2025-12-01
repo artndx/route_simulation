@@ -106,9 +106,8 @@ if (speedMultInput) {
   });
 }
 
-let isOptimalSpeed = false;
-
 const useOptimalSpeedCheckbox = document.getElementById('useOptimalSpeed');
+let isOptimalSpeed = useOptimalSpeedCheckbox.checked;
 if (useOptimalSpeedCheckbox) {
   useOptimalSpeedCheckbox.addEventListener('change', () => {
     isOptimalSpeed = useOptimalSpeedCheckbox.checked;

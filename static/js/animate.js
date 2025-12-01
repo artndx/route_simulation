@@ -131,22 +131,20 @@ function playSimulation(states) {
     current_speed /= 3.6;
 
     current_state = null;
-    if(!isCompleteControlledRoute){
-      try {
-        const resp = await fetch('/drive_route', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ current_speed: current_speed })
-        });
-        if (!resp.ok) throw new Error('Ошибка сервера /drive_route');
-        const data = await resp.json();
-        current_state = data.state;
-        if(current_state.is_finish){
-          isCompleteControlledRoute = true;
-        }
-      } catch (err) {
-        alert(err);
+    try {
+      const resp = await fetch('/drive_route', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_speed: current_speed })
+      });
+      if (!resp.ok) throw new Error('Ошибка сервера /drive_route');
+      const data = await resp.json();
+      current_state = data.state;
+      if(current_state.is_finished){
+        isCompleteControlledRoute = true;
       }
+    } catch (err) {
+      alert(err);
     }
 
     if(isCompleteControlledRoute)
