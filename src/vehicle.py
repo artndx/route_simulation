@@ -10,6 +10,9 @@ class Vehicle:
         self.base_fuel = 0.0008  # L/s at base speed
 
     def move(self, slope_percent, current_speed, dt):
+        # hard-code
+        current_speed = 10
+        # 
         moved_dist = current_speed * dt
 
         fuel_factor = max(0.1, current_speed / self.base_speed)
@@ -32,7 +35,7 @@ class Vehicle:
             current_speed = min(optimal_speed, current_speed + self.accel * dt)
         else:
             current_speed = max(optimal_speed, current_speed - self.decel * dt)
-        
+    
         move_result = self.move(slope_percent, current_speed, dt)
 
         return {
