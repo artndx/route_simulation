@@ -32,8 +32,7 @@ function formatElapsed(ms) {
 
 function resetAnimation() {
   if (animTimer) { clearInterval(animTimer); animTimer = null; }
-  if (playTimeoutOptional) { clearTimeout(playTimeoutOptional); playTimeoutOptional = null; }
-  if (playTimeoutControlled) { clearTimeout(playTimeoutControlled); playTimeoutControlled = null; }
+  if (playTimeout) { clearTimeout(playTimeout); playTimeout = null; }
   if (carMarker) { map.removeLayer(carMarker); carMarker = null; }
   if (ghostMarker) { map.removeLayer(ghostMarker); ghostMarker = null; }
   if (traveledLine) { map.removeLayer(traveledLine); traveledLine = null; }
@@ -73,7 +72,8 @@ function playSimulation(states) {
   document.getElementById('startBtn').style.display = 'none';
   document.getElementById('finishBtn').style.display = 'inline-block';
 
-  const state = states[0];
+  si = 0
+  const state = states[si];
   const carIcon = L.divIcon({
     html: '<div style="background:#29bd18ff;width:20px;height:20px;border-radius:50%;border:2px solid #29bd18ff;"></div>',
     iconSize: [20, 20],
@@ -91,90 +91,76 @@ function playSimulation(states) {
   traveledLine = L.polyline([[state.latitude, state.longitude]], { color: 'red', weight: 4 }).addTo(map);
   initCharts();
 
-  async function animateOptimizedCar(i) {
-    if (isFinish || i >= states.length) {
-      isCompleteOptionalRoute = true;
-      return;
-    }
-    if (isPaused) { playTimeoutOptional = setTimeout(() => animateOptimizedCar(i), 200); return; }
-
-    optimized_state = states[i];
-
-    ghostMarker.setLatLng([optimized_state.latitude, optimized_state.longitude]);
-    traveledLine.addLatLng([optimized_state.latitude, optimized_state.longitude]);
-
-    document.getElementById('opt_speed').innerText = kmh(optimized_state.speed_m_s);
-    document.getElementById('opt_distance').innerText = (optimized_state.distance_km).toFixed(2);
-    document.getElementById('opt_fuel').innerText = (optimized_state.fuel_l).toFixed(3);
-    document.getElementById('opt_elapsed').innerText = formatElapsed(Math.round(optimized_state.time_s * 1000));
-
-    if (i + 1 < states.length) {
-      const wait_ms = Math.max(10, (time_step * 1000) / Math.max(0.01, speedMultiplier));
-      playTimeoutOptional = setTimeout(() => animateOptimizedCar(i+1), wait_ms);
-    }
-  }
-
-  async function animateControlledCar() {
+  async function animateMoving() {
     if (isFinish) {
+      isCompleteOptionalRoute = true;
       isCompleteControlledRoute = true;
       return;
     }
-    if (isPaused) { playTimeoutOptional = setTimeout(() => animateControlledCar(), 200); return; }
+    if (isPaused) { playTimeout = setTimeout(() => animateMoving(i), 200); return; }
 
-    current_speed = 0.0;
-    if(isOptimalSpeed){
-      current_speed = parseFloat(document.getElementById('opt_speed').innerText) || 20;
-    } else{
-      current_speed = parseFloat(document.getElementById('cur_speed').value) || 20;
+    // Оптимальная скорость
+    if(!isCompleteOptionalRoute)
+    {
+      optimized_state = states[si];
+
+      ghostMarker.setLatLng([optimized_state.latitude, optimized_state.longitude]);
+      traveledLine.addLatLng([optimized_state.latitude, optimized_state.longitude]);
+
+      document.getElementById('opt_speed').innerText = kmh(optimized_state.speed_m_s);
+      document.getElementById('opt_distance').innerText = (optimized_state.distance_km).toFixed(2);
+      document.getElementById('opt_fuel').innerText = (optimized_state.fuel_l).toFixed(3);
+      document.getElementById('opt_elapsed').innerText = formatElapsed(Math.round(optimized_state.time_s * 1000));
+      
+      si += 1
+      if(si >= states.length)
+      {
+        isCompleteOptionalRoute = true
+      }
     }
 
-    current_speed /= 3.6;
+    // Заданная скорость
+    if(!isCompleteControlledRoute)
+    {
+      current_speed = 0.0;
+      if(isOptimalSpeed){
+        current_speed = parseFloat(document.getElementById('opt_speed').innerText) || 20;
+      } else{
+        current_speed = parseFloat(document.getElementById('cur_speed').value) || 20;
+      }
+      current_speed /= 3.6;
 
-    current_state = null;
-    try {
-      const resp = await fetch('/drive_route', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_speed: current_speed })
-      });
-      if (!resp.ok) throw new Error('Ошибка сервера /drive_route');
-      const data = await resp.json();
-      current_state = data.state;
+      current_state = null;
+      try {
+        const resp = await fetch('/drive_route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ current_speed: current_speed })
+        });
+        if (!resp.ok) throw new Error('Ошибка сервера /drive_route');
+        const data = await resp.json();
+        current_state = data.state;
+      } catch (err) {
+        alert(err);
+      }
+
       if(current_state.is_finished){
         isCompleteControlledRoute = true;
+        current_speed = 0.0
       }
-    } catch (err) {
-      alert(err);
+
+      carMarker.setLatLng([current_state.latitude, current_state.longitude]);
+
+      document.getElementById('cur_speed').value = kmh(current_state.speed_m_s);
+      document.getElementById('cur_distance').innerText = (current_state.distance_km).toFixed(2);
+      document.getElementById('cur_fuel').innerText = (current_state.fuel_l).toFixed(3);
+      document.getElementById('cur_elapsed').innerText = formatElapsed(Math.round(current_state.time_s * 1000));
+
+      chartData.times.push(Math.floor(current_state.time_s));
+      chartData.altitudes.push(current_state.altitude || 0);
+      chartData.slopes.push(current_state.slope || 0);
+      updateCharts();
     }
-
-    if(isCompleteControlledRoute)
-    {
-      current_speed = 0.0
-    }
-
-    carMarker.setLatLng([current_state.latitude, current_state.longitude]);
-
-    document.getElementById('cur_speed').value = kmh(current_state.speed_m_s);
-    document.getElementById('cur_distance').innerText = (current_state.distance_km).toFixed(2);
-    document.getElementById('cur_fuel').innerText = (current_state.fuel_l).toFixed(3);
-    document.getElementById('cur_elapsed').innerText = formatElapsed(Math.round(current_state.time_s * 1000));
-
-    chartData.times.push(Math.floor(current_state.time_s));
-    chartData.altitudes.push(current_state.altitude || 0);
-    chartData.slopes.push(current_state.slope || 0);
-    updateCharts();
-
-    if (!isCompleteControlledRoute) {
-        const wait_ms = Math.max(10, (time_step * 1000) / Math.max(0.01, speedMultiplier));
-        playTimeoutOptional = setTimeout(() => animateControlledCar(), wait_ms);
-    }
-  }
-
-  async function animateFuelRateDiff() {
-    if (isCompleteControlledRoute || isCompleteOptionalRoute) {
-      return;
-    }
-    if (isPaused) { playTimeout = setTimeout(() => animateFuelRateDiff(), 200); return; }
 
     const curFuel = parseFloat(document.getElementById('cur_fuel').innerText);
     const optFuel = parseFloat(document.getElementById('opt_fuel').innerText);
@@ -209,16 +195,12 @@ function playSimulation(states) {
         optDiffSpan.style.display = "none";
     }
 
-    if (!isCompleteControlledRoute && !isCompleteOptionalRoute) {
-        const wait_ms = Math.max(10, (time_step * 1000) / Math.max(0.01, speedMultiplier));
-        playTimeoutControlled = setTimeout(() => animateFuelRateDiff(), wait_ms);
-    }
+    const wait_ms = Math.max(10, (time_step * 1000) / Math.max(0.01, speedMultiplier));
+    playTimeout = setTimeout(() => animateMoving(), wait_ms);
   }
 
   try{
-    animateOptimizedCar(0);
-    animateControlledCar();
-    // animateFuelRateDiff();
+    animateMoving();
   } catch(err){
     alert(err);
   }

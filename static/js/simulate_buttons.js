@@ -1,6 +1,5 @@
 let simStates = null;
-let playTimeoutOptional = null;
-let playTimeoutControlled = null;
+let playTimeout = null;
 let time_step = 0.05;
 
 // Кнопка Запустить
@@ -51,8 +50,7 @@ if (pauseBtn && resumeBtn) {
 const finishBtn = document.getElementById('finishBtn');
 if (finishBtn) {
   finishBtn.addEventListener('click', () => {
-    if (playTimeoutOptional) { clearTimeout(playTimeoutOptional); playTimeoutOptional = null; }
-    if (playTimeoutControlled) { clearTimeout(playTimeoutControlled); playTimeoutControlled= null; }
+    if (playTimeout) { clearTimeout(playTimeout); playTimeout = null; }
     if (simStates && simStates.length > 0) {
       lastState = simStates[simStates.length - 1];
       document.getElementById('opt_speed').innerText = kmh(lastState.speed_m_s);
@@ -60,7 +58,6 @@ if (finishBtn) {
       document.getElementById('opt_fuel').innerText = (lastState.fuel_l).toFixed(3);
       document.getElementById('opt_elapsed').innerText = formatElapsed(Math.round(lastState.time_s * 1000));
 
-      // Optionally update charts with all remaining data
       for (let j = currentStepIndex; j < simStates.length; j++) {
         const st = simStates[j];
         ghostMarker.setLatLng([st.latitude, st.longitude]);
@@ -75,6 +72,7 @@ if (finishBtn) {
       isFinish = true;
       document.getElementById('finishBtn').style.display = 'none';
       document.getElementById('animControls').style.display = 'none';
+      simStates = null;
     }
   });
 }
