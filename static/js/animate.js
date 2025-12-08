@@ -8,7 +8,7 @@ let totalFuel = 0;
 let totalDistance = 0;
 
 let minSpeedMultiplier = 0.1;
-let maxSpeedMultiplier = 200;
+let maxSpeedMultiplier = 5000;
 let speedMultiplier = 1.0;
 
 let isPaused = false;
